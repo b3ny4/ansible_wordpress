@@ -1,0 +1,190 @@
+---
+# file: roles/wordpress/tasks/main.yml
+
+
+# install nginx
+
+- name: install nginx
+  become: yes
+  command: amazon-linux-extras install nginx1 -y
+  args:
+    creates: /sbin/nginx
+
+# install php
+
+- name: install php
+  become: yes
+  command: amazon-linux-extras install php8.0 -y
+  args:
+    creates: /sbin/php-fpm
+
+# install wordpress
+
+- name: create www directory
+  become: yes
+  file:
+    path: /var/www
+    state: directory
+
+- name: upload wordpress
+  become: yes
+  unarchive:
+    src: wordpress.tar.gz
+    dest: /var/www/
+    owner: nginx
+    group: nginx
+
+# configure database for WP
+
+- name: create wordpress database
+  mysql_db:
+    name: wordpress
+    state: present
+    login_user: root
+    login_password: "{{mysql_root_password}}"
+
+- name: Set wordpress database password
+  pause:
+    prompt: "please give the mysql wordpress password"
+    echo: no
+  register: wppw
+
+- name: register result
+  set_fact:
+    mysql_wordpress_password: "{{ wppw.user_input }}"
+
+- name: create wordpress database user
+  mysql_user:
+    name: wordpress
+    password: "{{mysql_wordpress_password}}"
+    priv: "wordpress.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{mysql_root_password}}"
+
+# configure php
+
+- name: configure php user
+  become: yes
+  lineinfile:
+    path: /etc/php-fpm.d/www.conf
+    regex: "^user"
+    insertafter: "^; RPM: apache user"
+    line: "user = nginx"
+
+- name: configure php acl user
+  become: yes
+  lineinfile:
+    path: /etc/php-fpm.d/www.conf
+    regex: "^listen.acl_user"
+    insertafter: "^; When set, listen.owner"
+    line: "listen.acl_users = nginx"
+
+- name: configure php group
+  become: yes
+  lineinfile:
+    path: /etc/php-fpm.d/www.conf
+    regex: "^group"
+    insertafter: "; RPM: Keep a group"
+    line: "group = nginx"
+
+- name: fix permissions
+  become: yes
+  file:
+    path: "{{ item }}"
+    group: nginx
+    owner: nginx
+  with_items:
+    - /var/lib/php/session/
+    - /var/lib/php/wsdlcache/
+    - /var/lib/php/opcache/
+    - /var/log/php-fpm
+
+- name: delete apache user
+  become: yes
+  user:
+    name: apache
+    state: absent
+    remove: yes
+
+- name: delete apache group
+  become: yes
+  group:
+    name: apache
+    state: absent
+
+# configure wordpress
+
+- name: configure wordpress
+  become: yes
+  template:
+    src: wp-config.php.j2
+    dest: /var/www/wordpress/wp-config.php
+    owner: nginx
+    group: nginx
+
+# configure nginx
+
+- name: configure nginx
+  become: yes
+  template:
+    src: server.conf.j2
+    dest: /etc/nginx/conf.d/{{ inventory_hostname }}.conf
+    owner: nginx
+    group: nginx
+    force: no
+
+# start services
+
+- name: start php-fpm
+  become: yes
+  service:
+    name: php-fpm
+    state: restarted
+    enabled: yes
+
+- name: start nginx
+  become: yes
+  service:
+    name: nginx
+    state: restarted
+    enabled: yes
+
+# install TSL Certificate
+
+- name: search for epel
+  become: yes
+  shell: yum repolist | grep "epel"
+  ignore_errors: yes
+  register: result
+
+- name: install epel
+  become: yes
+  command: amazon-linux-extras install epel -y
+  when: result is failed
+
+- name: install certbot
+  become: yes
+  yum:
+    name:
+     - certbot
+     - python-certbot
+     - python2-certbot-nginx
+    state: present
+    update_cache: yes
+
+- name: Set Manager Email
+  pause:
+    prompt: "Please give the certificate manager email"
+    echo: yes
+  register: cme
+
+- name: register results
+  set_fact:
+    certbot_manager_email: "{{ cme.user_input }}"
+
+- name: run certbot
+  become: yes
+  command: certbot -n --nginx -m {{ certbot_manager_email }} --agree-tos  {% for domain in domains %} -d {{ domain }} {% endfor %}
+  args:
+    creates: /etc/letsencrypt/live/{{ domains[0] }}/fullchain.pem

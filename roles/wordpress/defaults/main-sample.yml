@@ -1,0 +1,6 @@
+---
+# file: roles/wordpress/defaults/main.yml
+domains: # enter your domain(s) here
+  - penguinfreax.org
+  - penguinfreax.com
+  - penguinfreax.net

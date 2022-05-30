@@ -1,0 +1,9 @@
+---
+# file: roles/cleanup/tasks/main.yml
+- name: cleanup default user
+  become: yes
+  user:
+    name: ec2-user
+    state: absent
+    remove: yes
+    force: yes

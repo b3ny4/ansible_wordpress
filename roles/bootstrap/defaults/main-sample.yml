@@ -1,0 +1,3 @@
+---
+# file: roles/bootstrap/defaults/main.yml
+become_password: "$6$LXFdS3lyH7iJTcdM$GBN/BVVUKg5ab.B5ZXk/RZo5m8.Gt44QSmXBkxEhBT6o.HnRQqWrmMpZhkHrALdtLdt8IYjqlf3BR4.TRlMTV." # generate this with openssl

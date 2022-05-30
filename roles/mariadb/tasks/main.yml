@@ -1,0 +1,66 @@
+---
+# file: roles/wordpress/tasks/main.yml
+
+# install mariadb
+
+- name: install mariadb
+  become: yes
+  yum:
+    name:
+      - mariadb-server
+    state: present
+    update_cache: yes
+
+- name: install pymysql
+  become: yes
+  pip:
+    name: pymysql
+    state: present
+
+- name: start mariadb
+  become: yes
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Set mysql_root_password
+  pause:
+    prompt: "Please give the mysql root password"
+    echo: no
+  register: rootpw
+
+- name: register result
+  set_fact:
+    mysql_root_password: "{{ rootpw.user_input }}"
+
+- name: change mysql root password
+  mysql_user:
+    name: root
+    login_user: root
+    host_all: yes
+    password: "{{mysql_root_password}}"
+  ignore_errors: yes
+
+- name: disable remote login
+  mysql_user:
+    name: root
+    host: "{{ansible_nodename}}"
+    login_user: root
+    login_password: "{{mysql_root_password}}"
+    state: absent
+
+- name: remove anonymous user
+  mysql_user:
+    name: ""
+    host_all: yes
+    login_user: root
+    login_password: "{{mysql_root_password}}"
+    state: absent
+
+- name: remove test database
+  mysql_db:
+    name: test
+    login_user: root
+    login_password: "{{mysql_root_password}}"
+    state: absent

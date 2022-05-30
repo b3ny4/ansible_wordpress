@@ -1,0 +1,33 @@
+---
+# file: roles/bootstrap/tasks/main.yml
+
+- name: add ansible user
+  become: yes
+  user:
+    name: ansible
+    password: "{{ become_password }}"
+    groups:
+      - wheel
+    state: present
+    shell: /bin/bash
+    system: no
+    createhome: yes
+    home: /home/ansible
+
+- name: create ssh directory
+  become: yes
+  file:
+    path: /home/ansible/.ssh
+    state: directory
+    mode: '0700'
+    owner: ansible
+    group: ansible
+
+- name: add authorized key
+  become: yes
+  copy:
+    src: ../ssh/ssh_key.pub
+    dest: /home/ansible/.ssh/authorized_keys
+    owner: ansible
+    group: ansible
+    mode: '0600'

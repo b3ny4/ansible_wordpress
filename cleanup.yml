@@ -1,0 +1,5 @@
+---
+# file: cleanup.yml
+- hosts: cloud
+  roles:
+    - cleanup

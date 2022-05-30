@@ -1,0 +1,23 @@
+server {
+
+    server_name {{ inventory_hostname }} {% for domain in domains %} {{ domain }} {% endfor %};
+    root /var/www/wordpress;
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_intercept_errors on;
+        fastcgi_pass unix:/var/run/php-fpm/www.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location ~*\.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires max;
+        log_not_found off;
+    }
+
+}

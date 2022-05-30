@@ -1,0 +1,10 @@
+---
+# file: wordpress.yml
+- hosts: database
+  roles:
+    - mariadb
+
+- hosts: wordpress
+  roles:
+    - mariadb
+    - wordpress
